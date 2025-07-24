@@ -20,7 +20,7 @@ class Order(models.Model):
 
     Attributes:
         order_number (str): Unique identifier for the order.
-        user_profile (ForeignKey): Link to the user profile.
+        customer (ForeignKey): Link to the user profile.
         first_name (str): First name of the user.
         last_name (str): Last name of the user.
         email (str): Email address of the user.
@@ -46,7 +46,7 @@ class Order(models.Model):
     ]
 
     order_number = models.CharField(max_length=32, null=False, editable=False)
-    user_profile = models.ForeignKey(
+    customer = models.ForeignKey(
         Customer,
         on_delete=models.SET_NULL,
         null=True,
