@@ -4,7 +4,7 @@ from django.dispatch import receiver
 from django.contrib import messages
 from django.contrib.auth.models import User
 
-from ..store.models import Order, Customer
+from store.models import Order, Customer
 
 
 @receiver(post_save, sender=User)
@@ -35,8 +35,11 @@ def save_user_profile(sender, instance, **kwargs):
         instance: The User object being saved.
         kwargs: Additional keyword arguments.
     """
-    if hasattr(instance, 'userprofile'):
-        instance.userprofile.save()
+    try:
+        instance.customer.save()
+    except Customer.DoesNotExist:
+        pass
+
 
 
 @receiver(post_save, sender=User)
@@ -56,7 +59,7 @@ def assign_guest_orders_to_new_user(sender, instance, created, **kwargs):
     if created:
         user = instance
         try:
-            profile = user.userprofile
+            profile = user.customer
         except Customer.DoesNotExist:
             profile = Customer.objects.create(user=user)
 
@@ -84,7 +87,7 @@ def assign_guest_orders_on_login(sender, request, user, **kwargs):
         kwargs: Additional keyword arguments.
     """
     try:
-        profile = user.userprofile
+        profile = user.customer
     except Customer.DoesNotExist:
         profile = Customer.objects.create(user=user)
 
