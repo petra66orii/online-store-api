@@ -1,9 +1,12 @@
+import uuid
 from django.db import models
 from django_countries.fields import CountryField
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
 # Create your models here.
 class Customer(models.Model):
@@ -33,3 +36,13 @@ class Customer(models.Model):
             Customer.objects.create(user=instance)
         # Existing users: just save the profile
         instance.customer.save()
+
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        from django.utils import timezone
+        return (timezone.now() - self.created_at).total_seconds() > 86400  # 24 hours
