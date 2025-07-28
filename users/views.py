@@ -4,19 +4,29 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.conf import settings
 from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from datetime import timedelta
+from datetime import timedelta, datetime
+from django.views.decorators.csrf import csrf_exempt
+from .models import PasswordResetToken
+from .serializers import (
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+)
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
+@csrf_exempt
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
     return Response({'message': f'Hello, {request.user.username}!'})
 
-
+@csrf_exempt
 @api_view(['POST'])
 def register_user(request):
     data = request.data
@@ -88,3 +98,40 @@ def resend_verification_email(request):
         return Response({'detail': 'Verification email resent'})
     except User.DoesNotExist:
         return Response({'detail': 'User not found'}, status=404)
+
+
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = User.objects.get(email=serializer.validated_data['email'])
+
+        # Delete old tokens
+        PasswordResetToken.objects.filter(user=user).delete()
+
+        token_obj = PasswordResetToken.objects.create(user=user)
+        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token_obj.token}"
+
+        subject = "Reset Your Password"
+        from_email = "noreply@example.com"
+        to = user.email
+
+        html_content = render_to_string("emails/password_reset.html", {
+            "reset_link": reset_link,
+            "year": datetime.datetime.now().year,
+        })
+        text_content = f"Reset your password: {reset_link}"
+
+        email = EmailMultiAlternatives(subject, text_content, from_email, [to])
+        email.attach_alternative(html_content, "text/html")
+        email.send()
+
+        return Response({"detail": "Password reset link sent."}, status=200)
+
+
+class PasswordResetConfirmView(APIView):
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "Password successfully reset."}, status=200)
